@@ -176,6 +176,54 @@
   }
   .warn-box.show{display:block;}
 
+  .reminder-box{
+    background:rgba(18,184,134,.1);
+    border:1px solid rgba(18,184,134,.35);
+    border-radius:12px;
+    padding:12px 14px;
+    font-size:.82rem;
+    color:var(--emerald);
+    margin-top:16px;
+    display:none;
+    align-items:center;justify-content:space-between;
+    gap:10px;
+    width:100%;max-width:440px;
+  }
+  .reminder-box.show{display:flex;}
+  .reminder-box button{
+    background:none;border:1px solid var(--emerald);color:var(--emerald);
+    border-radius:8px;padding:4px 10px;font-size:.72rem;cursor:pointer;flex-shrink:0;
+  }
+
+  .goal-row{
+    display:flex;align-items:center;gap:8px;margin-bottom:14px;font-size:.85rem;
+  }
+  .goal-row input[type=number]{
+    width:60px;background:var(--bg2);border:1px solid var(--border);
+    color:var(--text);border-radius:6px;padding:5px 8px;font-size:.85rem;
+  }
+  .progress-outer{
+    width:100%;height:12px;background:var(--bg2);border-radius:8px;
+    overflow:hidden;border:1px solid var(--border);
+  }
+  .progress-inner{
+    height:100%;width:0%;
+    background:linear-gradient(90deg,var(--petrol),var(--emerald));
+    transition:width .4s ease;
+  }
+  .progress-label{
+    display:flex;justify-content:space-between;
+    font-size:.75rem;color:var(--muted);margin-top:6px;
+  }
+
+  .time-inputs{
+    display:flex;align-items:center;gap:8px;font-size:.82rem;
+  }
+  .time-inputs input[type=time]{
+    background:var(--bg2);border:1px solid var(--border);
+    color:var(--text);border-radius:6px;padding:4px 6px;font-size:.8rem;
+  }
+
   footer{
     position:fixed;bottom:0;left:0;right:0;
     background:rgba(10,18,16,.95);
@@ -225,6 +273,25 @@
   ⚠️ Wake Lock wird von deinem Browser nicht unterstützt. Es wird stattdessen ein stiller Video-Loop im Hintergrund genutzt, um den Bildschirm wachzuhalten. Diese Seite muss dafür im Vordergrund-Tab bleiben.
 </div>
 
+<div class="reminder-box" id="reminderBox">
+  <span>👀 Zeit für eine kurze Pause – Augen und Bewegung tun jetzt gut.</span>
+  <button id="reminderDismiss">OK</button>
+</div>
+
+<div class="card">
+  <h2>Tagesziel</h2>
+  <div class="goal-row">
+    <span>Ziel:</span>
+    <input type="number" id="goalHours" min="1" max="16" step="0.5" value="8">
+    <span>Stunden</span>
+  </div>
+  <div class="progress-outer"><div class="progress-inner" id="progressBar"></div></div>
+  <div class="progress-label">
+    <span id="progressText">00:00:00 heute</span>
+    <span id="progressPercent">0%</span>
+  </div>
+</div>
+
 <div class="card">
   <h2>Einstellungen</h2>
   <div class="settings-row">
@@ -234,6 +301,18 @@
   <div class="settings-row">
     <span>Automatisch neu anfordern (Tab-Wechsel)</span>
     <label class="switch"><input type="checkbox" id="autoReacquire" checked><span class="slider"></span></label>
+  </div>
+  <div class="settings-row">
+    <span>Zeitfenster-Automatik</span>
+    <label class="switch"><input type="checkbox" id="windowEnabled"><span class="slider"></span></label>
+  </div>
+  <div class="settings-row">
+    <span>Aktiv-Zeitraum</span>
+    <div class="time-inputs">
+      <input type="time" id="windowStart" value="09:00">
+      <span>–</span>
+      <input type="time" id="windowEnd" value="17:00">
+    </div>
   </div>
 </div>
 
@@ -272,11 +351,24 @@ const sessionList = document.getElementById('sessionList');
 const soundToggle = document.getElementById('soundToggle');
 const autoReacquire = document.getElementById('autoReacquire');
 const fallbackVideo = document.getElementById('fallbackVideo');
+const reminderBox = document.getElementById('reminderBox');
+const reminderDismiss = document.getElementById('reminderDismiss');
+const goalHoursInput = document.getElementById('goalHours');
+const progressBar = document.getElementById('progressBar');
+const progressText = document.getElementById('progressText');
+const progressPercent = document.getElementById('progressPercent');
+const windowEnabled = document.getElementById('windowEnabled');
+const windowStart = document.getElementById('windowStart');
+const windowEnd = document.getElementById('windowEnd');
 
 const wakeLockSupported = 'wakeLock' in navigator;
 if(!wakeLockSupported){
   warnBox.classList.add('show');
 }
+
+const REMINDER_INTERVAL_MIN = 50;
+let lastReminderAt = 0; // Minuten-Marke seit Sitzungsstart
+const DEFAULT_TITLE = document.title;
 
 // ---------- Storage ----------
 function loadSessions(){
@@ -323,6 +415,37 @@ document.getElementById('clearBtn').onclick = () => {
   localStorage.setItem('hoAktivSessions', JSON.stringify(remaining));
   renderSessions();
 };
+
+// ---------- Einstellungen laden/speichern ----------
+function loadSettings(){
+  goalHoursInput.value = localStorage.getItem('hoAktivGoalHours') || '8';
+  windowEnabled.checked = localStorage.getItem('hoAktivWindowEnabled') === '1';
+  windowStart.value = localStorage.getItem('hoAktivWindowStart') || '09:00';
+  windowEnd.value = localStorage.getItem('hoAktivWindowEnd') || '17:00';
+  soundToggle.checked = localStorage.getItem('hoAktivSound') === '1';
+  autoReacquire.checked = localStorage.getItem('hoAktivAutoReacquire') !== '0';
+}
+loadSettings();
+goalHoursInput.onchange = () => { localStorage.setItem('hoAktivGoalHours', goalHoursInput.value); updateProgress(); };
+windowEnabled.onchange = () => localStorage.setItem('hoAktivWindowEnabled', windowEnabled.checked ? '1':'0');
+windowStart.onchange = () => localStorage.setItem('hoAktivWindowStart', windowStart.value);
+windowEnd.onchange = () => localStorage.setItem('hoAktivWindowEnd', windowEnd.value);
+soundToggle.onchange = () => localStorage.setItem('hoAktivSound', soundToggle.checked ? '1':'0');
+autoReacquire.onchange = () => localStorage.setItem('hoAktivAutoReacquire', autoReacquire.checked ? '1':'0');
+
+// ---------- Tagesziel / Fortschritt ----------
+function updateProgress(){
+  const goalSec = parseFloat(goalHoursInput.value || '8') * 3600;
+  const sessions = loadSessions();
+  let totalSec = sessions.reduce((sum,s) => sum + s.duration, 0);
+  if(active && startTime){
+    totalSec += Math.floor((Date.now() - startTime)/1000);
+  }
+  const pct = goalSec > 0 ? Math.min(100, Math.round((totalSec/goalSec)*100)) : 0;
+  progressBar.style.width = pct + '%';
+  progressText.textContent = fmtDuration(totalSec) + ' heute';
+  progressPercent.textContent = pct + '%';
+}
 
 // ---------- Sound ----------
 function beep(freq, dur){
@@ -388,12 +511,32 @@ async function releaseWakeLock(){
 function updateDisplay(){
   const elapsed = Math.floor((Date.now() - startTime) / 1000);
   timeDisplay.textContent = fmtDuration(elapsed);
+  document.title = '⏱ ' + fmtDuration(elapsed) + ' – Aktiv';
+  updateProgress();
+  checkReminder(elapsed);
 }
 
+// ---------- Pausenerinnerung ----------
+function checkReminder(elapsedSec){
+  const elapsedMin = Math.floor(elapsedSec/60);
+  const currentBlock = Math.floor(elapsedMin / REMINDER_INTERVAL_MIN);
+  if(currentBlock > 0 && currentBlock !== lastReminderAt){
+    lastReminderAt = currentBlock;
+    reminderBox.classList.add('show');
+    beep(660, 0.2);
+  }
+}
+reminderDismiss.onclick = () => reminderBox.classList.remove('show');
+
 // ---------- Toggle ----------
-async function activate(){
+async function activate(resume, silent){
   active = true;
-  startTime = Date.now();
+  if(!resume){
+    startTime = Date.now();
+    localStorage.setItem('hoAktivActiveSession', JSON.stringify({startTime}));
+  }
+  lastReminderAt = 0;
+  reminderBox.classList.remove('show');
   await requestWakeLock();
   ring.classList.add('on');
   statusLabel.textContent = 'Aktiv';
@@ -402,25 +545,69 @@ async function activate(){
   toggleBtn.classList.add('stop');
   timerInterval = setInterval(updateDisplay, 1000);
   updateDisplay();
-  beep(880, 0.15);
+  if(!silent) beep(880, 0.15);
 }
-async function deactivate(){
+async function deactivate(silent){
   active = false;
   const durationSec = startTime ? Math.floor((Date.now() - startTime)/1000) : 0;
   clearInterval(timerInterval);
   await releaseWakeLock();
+  localStorage.removeItem('hoAktivActiveSession');
   ring.classList.remove('on');
   statusLabel.textContent = 'Inaktiv';
   toggleBtn.textContent = 'Aktivieren';
   toggleBtn.classList.remove('stop');
   toggleBtn.classList.add('start');
   timeDisplay.textContent = '00:00:00';
+  document.title = DEFAULT_TITLE;
+  reminderBox.classList.remove('show');
   if(durationSec >= 5){
     saveSession(durationSec);
   }
-  beep(440, 0.15);
+  updateProgress();
+  if(!silent) beep(440, 0.15);
 }
 toggleBtn.onclick = () => active ? deactivate() : activate();
+
+// ---------- Tastenkürzel ----------
+document.addEventListener('keydown', (e) => {
+  const tag = (e.target.tagName || '').toLowerCase();
+  if(tag === 'input' || tag === 'textarea') return;
+  if(e.code === 'Space'){
+    e.preventDefault();
+    active ? deactivate() : activate();
+  }
+});
+
+// ---------- Session nach Reload wiederherstellen ----------
+(function resumeSession(){
+  const raw = localStorage.getItem('hoAktivActiveSession');
+  if(!raw) return;
+  try{
+    const saved = JSON.parse(raw);
+    if(saved && saved.startTime){
+      startTime = saved.startTime;
+      activate(true, true);
+    }
+  }catch(e){}
+})();
+
+// ---------- Zeitfenster-Automatik ----------
+let autoStarted = false;
+function checkTimeWindow(){
+  if(!windowEnabled.checked) return;
+  const now = new Date();
+  const nowStr = String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
+  const inWindow = nowStr >= windowStart.value && nowStr < windowEnd.value;
+  if(inWindow && !active){
+    autoStarted = true;
+    activate();
+  } else if(!inWindow && active && autoStarted){
+    autoStarted = false;
+    deactivate();
+  }
+}
+setInterval(checkTimeWindow, 30000);
 
 // ---------- Visibility handling ----------
 document.addEventListener('visibilitychange', async () => {
@@ -475,6 +662,8 @@ document.getElementById('installBtn').onclick = async () => {
   deferredPrompt = null;
   document.getElementById('installBtn').style.display = 'none';
 };
+
+updateProgress();
 
 if('serviceWorker' in navigator){
   const swCode = `
