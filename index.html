@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Homeoffice Aktiv</title>
+<meta name="theme-color" content="#0a1f1c">
+<link rel="manifest" id="manifestLink">
+<style>
+  :root{
+    --bg:#0a1210;
+    --bg2:#0f1c19;
+    --card:#132420;
+    --border:#1e3833;
+    --petrol:#0e7c66;
+    --emerald:#12b886;
+    --amber:#e8a33d;
+    --text:#e6ede9;
+    --muted:#7d9992;
+    --danger:#d9534f;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    font-family:'Segoe UI',system-ui,sans-serif;
+    background:linear-gradient(160deg,var(--bg) 0%,var(--bg2) 100%);
+    color:var(--text);
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding:24px 16px 90px;
+  }
+  h1{
+    font-size:1.5rem;
+    font-weight:600;
+    margin-bottom:4px;
+    background:linear-gradient(90deg,var(--emerald),var(--amber));
+    -webkit-background-clip:text;
+    background-clip:text;
+    color:transparent;
+  }
+  .sub{color:var(--muted);font-size:.85rem;margin-bottom:28px;text-align:center;}
+
+  .status-ring{
+    width:220px;height:220px;
+    border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    position:relative;
+    margin-bottom:28px;
+    background:radial-gradient(circle at 50% 40%,rgba(18,184,134,.08),transparent 70%);
+  }
+  .status-ring::before{
+    content:'';
+    position:absolute;inset:0;
+    border-radius:50%;
+    border:3px solid var(--border);
+  }
+  .status-ring.on::before{
+    border-color:var(--emerald);
+    box-shadow:0 0 24px rgba(18,184,134,.35), inset 0 0 24px rgba(18,184,134,.15);
+    animation:pulse 2.4s ease-in-out infinite;
+  }
+  @keyframes pulse{
+    0%,100%{box-shadow:0 0 24px rgba(18,184,134,.35), inset 0 0 24px rgba(18,184,134,.15);}
+    50%{box-shadow:0 0 40px rgba(18,184,134,.55), inset 0 0 32px rgba(18,184,134,.25);}
+  }
+  .ring-inner{
+    text-align:center;
+  }
+  .ring-inner .time{
+    font-size:2.1rem;
+    font-weight:700;
+    font-variant-numeric:tabular-nums;
+  }
+  .ring-inner .label{
+    font-size:.75rem;
+    color:var(--muted);
+    text-transform:uppercase;
+    letter-spacing:.08em;
+    margin-top:4px;
+  }
+
+  .btn{
+    border:none;
+    border-radius:14px;
+    padding:16px 40px;
+    font-size:1.05rem;
+    font-weight:600;
+    cursor:pointer;
+    transition:transform .15s, filter .15s;
+    color:#08120f;
+  }
+  .btn:active{transform:scale(.97);}
+  .btn.start{background:linear-gradient(90deg,var(--emerald),#1fd39a);}
+  .btn.stop{background:linear-gradient(90deg,var(--danger),#f0776f);color:#1a0808;}
+
+  .info-row{
+    display:flex;gap:10px;
+    margin-top:24px;
+    flex-wrap:wrap;
+    justify-content:center;
+  }
+  .chip{
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:8px 14px;
+    font-size:.8rem;
+    color:var(--muted);
+    display:flex;align-items:center;gap:6px;
+  }
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--muted);}
+  .dot.ok{background:var(--emerald);}
+  .dot.warn{background:var(--amber);}
+
+  .card{
+    width:100%;max-width:440px;
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:16px;
+    padding:20px;
+    margin-top:28px;
+  }
+  .card h2{
+    font-size:.95rem;
+    color:var(--amber);
+    margin-bottom:12px;
+    display:flex;justify-content:space-between;align-items:center;
+  }
+  .card h2 button{
+    background:none;border:none;color:var(--muted);
+    font-size:.75rem;cursor:pointer;text-decoration:underline;
+  }
+  .session-list{list-style:none;max-height:220px;overflow-y:auto;}
+  .session-list li{
+    display:flex;justify-content:space-between;
+    padding:8px 0;
+    border-bottom:1px solid var(--border);
+    font-size:.85rem;
+  }
+  .session-list li:last-child{border-bottom:none;}
+  .session-list .d{color:var(--muted);font-size:.75rem;}
+  .empty{color:var(--muted);font-size:.85rem;text-align:center;padding:12px 0;}
+
+  .settings-row{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:10px 0;
+    border-bottom:1px solid var(--border);
+    font-size:.9rem;
+  }
+  .settings-row:last-child{border-bottom:none;}
+  .switch{
+    position:relative;width:44px;height:24px;
+  }
+  .switch input{opacity:0;width:0;height:0;}
+  .slider{
+    position:absolute;cursor:pointer;inset:0;
+    background:var(--border);border-radius:24px;transition:.2s;
+  }
+  .slider::before{
+    content:'';position:absolute;height:18px;width:18px;left:3px;top:3px;
+    background:var(--muted);border-radius:50%;transition:.2s;
+  }
+  input:checked + .slider{background:var(--petrol);}
+  input:checked + .slider::before{transform:translateX(20px);background:var(--emerald);}
+
+  .warn-box{
+    background:rgba(232,163,61,.08);
+    border:1px solid rgba(232,163,61,.3);
+    border-radius:12px;
+    padding:12px 14px;
+    font-size:.78rem;
+    color:var(--amber);
+    margin-top:16px;
+    display:none;
+  }
+  .warn-box.show{display:block;}
+
+  footer{
+    position:fixed;bottom:0;left:0;right:0;
+    background:rgba(10,18,16,.95);
+    border-top:1px solid var(--border);
+    padding:10px 16px;
+    display:flex;justify-content:center;align-items:center;
+    gap:16px;
+    font-size:.72rem;
+    color:var(--muted);
+    flex-wrap:wrap;
+    backdrop-filter:blur(6px);
+  }
+  footer a{color:var(--muted);text-decoration:none;}
+  footer a:hover{color:var(--emerald);}
+  .paypal-btn{
+    background:linear-gradient(90deg,var(--amber),#f0b95c);
+    color:#1a1200;padding:6px 14px;border-radius:20px;
+    font-weight:600;text-decoration:none;
+  }
+  #installBtn{
+    display:none;
+    background:var(--petrol);color:#eafff8;border:none;
+    padding:6px 14px;border-radius:20px;font-size:.72rem;cursor:pointer;
+  }
+</style>
+</head>
+<body>
+
+<h1>🖥️ Homeoffice Aktiv</h1>
+<p class="sub">Hält den Bildschirm wach, solange du arbeitest.</p>
+
+<div class="status-ring" id="ring">
+  <div class="ring-inner">
+    <div class="time" id="timeDisplay">00:00:00</div>
+    <div class="label" id="statusLabel">Inaktiv</div>
+  </div>
+</div>
+
+<button class="btn start" id="toggleBtn">Aktivieren</button>
+
+<div class="info-row">
+  <div class="chip"><span class="dot" id="wakeDot"></span><span id="wakeText">Wake Lock: —</span></div>
+  <div class="chip"><span class="dot" id="visDot"></span><span id="visText">Tab: sichtbar</span></div>
+</div>
+
+<div class="warn-box" id="warnBox">
+  ⚠️ Wake Lock wird von deinem Browser nicht unterstützt. Es wird stattdessen ein stiller Video-Loop im Hintergrund genutzt, um den Bildschirm wachzuhalten. Diese Seite muss dafür im Vordergrund-Tab bleiben.
+</div>
+
+<div class="card">
+  <h2>Einstellungen</h2>
+  <div class="settings-row">
+    <span>Ton bei Start/Stop</span>
+    <label class="switch"><input type="checkbox" id="soundToggle"><span class="slider"></span></label>
+  </div>
+  <div class="settings-row">
+    <span>Automatisch neu anfordern (Tab-Wechsel)</span>
+    <label class="switch"><input type="checkbox" id="autoReacquire" checked><span class="slider"></span></label>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Sitzungen heute <button id="clearBtn">Löschen</button></h2>
+  <ul class="session-list" id="sessionList"><li class="empty">Noch keine Sitzung beendet.</li></ul>
+</div>
+
+<footer>
+  <span id="installWrap"><button id="installBtn">📲 App installieren</button></span>
+  <a href="https://paypal.me/AlexanderGlauche" target="_blank" class="paypal-btn">☕ Unterstützen</a>
+  <span>|</span>
+  <span>Impressum: Alexander Scherer, Mertensstraße 18, 13587 Berlin · info@alexander-scherer.com · Kleingewerbe Fotograf §19 UStG</span>
+</footer>
+
+<video id="fallbackVideo" muted loop playsinline style="position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;"></video>
+
+<script>
+// ---------- State ----------
+let wakeLock = null;
+let active = false;
+let startTime = null;
+let timerInterval = null;
+let usingFallback = false;
+
+const ring = document.getElementById('ring');
+const timeDisplay = document.getElementById('timeDisplay');
+const statusLabel = document.getElementById('statusLabel');
+const toggleBtn = document.getElementById('toggleBtn');
+const wakeDot = document.getElementById('wakeDot');
+const wakeText = document.getElementById('wakeText');
+const visDot = document.getElementById('visDot');
+const visText = document.getElementById('visText');
+const warnBox = document.getElementById('warnBox');
+const sessionList = document.getElementById('sessionList');
+const soundToggle = document.getElementById('soundToggle');
+const autoReacquire = document.getElementById('autoReacquire');
+const fallbackVideo = document.getElementById('fallbackVideo');
+
+const wakeLockSupported = 'wakeLock' in navigator;
+if(!wakeLockSupported){
+  warnBox.classList.add('show');
+}
+
+// ---------- Storage ----------
+function loadSessions(){
+  const raw = localStorage.getItem('hoAktivSessions');
+  const all = raw ? JSON.parse(raw) : [];
+  const today = new Date().toDateString();
+  return all.filter(s => s.date === today);
+}
+function saveSession(durationSec){
+  const raw = localStorage.getItem('hoAktivSessions');
+  const all = raw ? JSON.parse(raw) : [];
+  all.push({
+    date: new Date().toDateString(),
+    end: new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}),
+    duration: durationSec
+  });
+  localStorage.setItem('hoAktivSessions', JSON.stringify(all));
+  renderSessions();
+}
+function fmtDuration(sec){
+  const h = Math.floor(sec/3600);
+  const m = Math.floor((sec%3600)/60);
+  const s = sec%60;
+  return [h,m,s].map(v=>String(v).padStart(2,'0')).join(':');
+}
+function renderSessions(){
+  const sessions = loadSessions();
+  if(sessions.length === 0){
+    sessionList.innerHTML = '<li class="empty">Noch keine Sitzung beendet.</li>';
+    return;
+  }
+  sessionList.innerHTML = sessions.slice().reverse().map(s => `
+    <li><span>Bis ${s.end} Uhr</span><span class="d">${fmtDuration(s.duration)}</span></li>
+  `).join('');
+}
+renderSessions();
+
+document.getElementById('clearBtn').onclick = () => {
+  if(!confirm('Alle heutigen Sitzungen löschen?')) return;
+  const raw = localStorage.getItem('hoAktivSessions');
+  const all = raw ? JSON.parse(raw) : [];
+  const today = new Date().toDateString();
+  const remaining = all.filter(s => s.date !== today);
+  localStorage.setItem('hoAktivSessions', JSON.stringify(remaining));
+  renderSessions();
+};
+
+// ---------- Sound ----------
+function beep(freq, dur){
+  if(!soundToggle.checked) return;
+  try{
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.frequency.value = freq;
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    gain.gain.setValueAtTime(0.08, ctx.currentTime);
+    osc.start();
+    osc.stop(ctx.currentTime + dur);
+  }catch(e){}
+}
+
+// ---------- Wake Lock ----------
+async function requestWakeLock(){
+  if(wakeLockSupported){
+    try{
+      wakeLock = await navigator.wakeLock.request('screen');
+      usingFallback = false;
+      wakeDot.className = 'dot ok';
+      wakeText.textContent = 'Wake Lock: aktiv';
+      wakeLock.addEventListener('release', () => {
+        wakeDot.className = 'dot warn';
+        wakeText.textContent = 'Wake Lock: freigegeben';
+      });
+    }catch(err){
+      startFallback();
+    }
+  } else {
+    startFallback();
+  }
+}
+function startFallback(){
+  usingFallback = true;
+  // stiller, transparenter Video-Loop als Fallback, um Standby zu verhindern
+  if(!fallbackVideo.src){
+    const canvas = document.createElement('canvas');
+    canvas.width = 2; canvas.height = 2;
+    const stream = canvas.captureStream ? canvas.captureStream(1) : null;
+    if(stream){
+      fallbackVideo.srcObject = stream;
+    }
+  }
+  fallbackVideo.play().catch(()=>{});
+  wakeDot.className = 'dot warn';
+  wakeText.textContent = 'Fallback aktiv';
+}
+async function releaseWakeLock(){
+  if(wakeLock){
+    try{ await wakeLock.release(); }catch(e){}
+    wakeLock = null;
+  }
+  fallbackVideo.pause();
+  wakeDot.className = 'dot';
+  wakeText.textContent = 'Wake Lock: —';
+}
+
+// ---------- Timer ----------
+function updateDisplay(){
+  const elapsed = Math.floor((Date.now() - startTime) / 1000);
+  timeDisplay.textContent = fmtDuration(elapsed);
+}
+
+// ---------- Toggle ----------
+async function activate(){
+  active = true;
+  startTime = Date.now();
+  await requestWakeLock();
+  ring.classList.add('on');
+  statusLabel.textContent = 'Aktiv';
+  toggleBtn.textContent = 'Deaktivieren';
+  toggleBtn.classList.remove('start');
+  toggleBtn.classList.add('stop');
+  timerInterval = setInterval(updateDisplay, 1000);
+  updateDisplay();
+  beep(880, 0.15);
+}
+async function deactivate(){
+  active = false;
+  const durationSec = startTime ? Math.floor((Date.now() - startTime)/1000) : 0;
+  clearInterval(timerInterval);
+  await releaseWakeLock();
+  ring.classList.remove('on');
+  statusLabel.textContent = 'Inaktiv';
+  toggleBtn.textContent = 'Aktivieren';
+  toggleBtn.classList.remove('stop');
+  toggleBtn.classList.add('start');
+  timeDisplay.textContent = '00:00:00';
+  if(durationSec >= 5){
+    saveSession(durationSec);
+  }
+  beep(440, 0.15);
+}
+toggleBtn.onclick = () => active ? deactivate() : activate();
+
+// ---------- Visibility handling ----------
+document.addEventListener('visibilitychange', async () => {
+  const visible = document.visibilityState === 'visible';
+  visDot.className = visible ? 'dot ok' : 'dot warn';
+  visText.textContent = 'Tab: ' + (visible ? 'sichtbar' : 'im Hintergrund');
+  if(active && visible && autoReacquire.checked && wakeLockSupported && !wakeLock){
+    await requestWakeLock();
+  }
+});
+
+// ---------- Warn before leaving while active ----------
+window.addEventListener('beforeunload', (e) => {
+  if(active){
+    e.preventDefault();
+    e.returnValue = '';
+  }
+});
+
+// ---------- PWA: Manifest + Service Worker ----------
+const manifest = {
+  name: "Homeoffice Aktiv",
+  short_name: "HO Aktiv",
+  start_url: ".",
+  display: "standalone",
+  background_color: "#0a1210",
+  theme_color: "#0a1f1c",
+  icons: [{
+    src: "data:image/svg+xml," + encodeURIComponent(`
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">
+        <rect width="192" height="192" rx="36" fill="#0a1210"/>
+        <circle cx="96" cy="96" r="58" fill="none" stroke="#12b886" stroke-width="8"/>
+        <circle cx="96" cy="96" r="14" fill="#e8a33d"/>
+      </svg>`),
+    sizes: "192x192",
+    type: "image/svg+xml"
+  }]
+};
+const manifestBlob = new Blob([JSON.stringify(manifest)], {type:'application/json'});
+document.getElementById('manifestLink').href = URL.createObjectURL(manifestBlob);
+
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  document.getElementById('installBtn').style.display = 'inline-block';
+});
+document.getElementById('installBtn').onclick = async () => {
+  if(!deferredPrompt) return;
+  deferredPrompt.prompt();
+  await deferredPrompt.userChoice;
+  deferredPrompt = null;
+  document.getElementById('installBtn').style.display = 'none';
+};
+
+if('serviceWorker' in navigator){
+  const swCode = `
+    self.addEventListener('install', e => self.skipWaiting());
+    self.addEventListener('activate', e => self.clients.claim());
+    self.addEventListener('fetch', e => {});
+  `;
+  const swBlob = new Blob([swCode], {type:'application/javascript'});
+  navigator.serviceWorker.register(URL.createObjectURL(swBlob)).catch(()=>{});
+}
+</script>
+</body>
+</html>
