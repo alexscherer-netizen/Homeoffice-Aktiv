@@ -337,6 +337,8 @@ let active = false;
 let startTime = null;
 let timerInterval = null;
 let usingFallback = false;
+let autoStarted = false;
+let windowManualStop = false;
 
 const ring = document.getElementById('ring');
 const timeDisplay = document.getElementById('timeDisplay');
@@ -533,7 +535,7 @@ async function activate(resume, silent){
   active = true;
   if(!resume){
     startTime = Date.now();
-    localStorage.setItem('hoAktivActiveSession', JSON.stringify({startTime}));
+    localStorage.setItem('hoAktivActiveSession', JSON.stringify({startTime, autoStarted}));
   }
   lastReminderAt = 0;
   reminderBox.classList.remove('show');
@@ -567,7 +569,7 @@ async function deactivate(silent){
   updateProgress();
   if(!silent) beep(440, 0.15);
 }
-toggleBtn.onclick = () => active ? deactivate() : activate();
+toggleBtn.onclick = manualToggle;
 
 // ---------- Tastenkürzel ----------
 document.addEventListener('keydown', (e) => {
@@ -575,9 +577,27 @@ document.addEventListener('keydown', (e) => {
   if(tag === 'input' || tag === 'textarea') return;
   if(e.code === 'Space'){
     e.preventDefault();
-    active ? deactivate() : activate();
+    manualToggle();
   }
 });
+
+function isInWindow(){
+  const now = new Date();
+  const nowStr = String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
+  return nowStr >= windowStart.value && nowStr < windowEnd.value;
+}
+function manualToggle(){
+  if(active){
+    if(windowEnabled.checked && isInWindow()){
+      windowManualStop = true; // verhindert sofortiges Wieder-Autostarten
+    }
+    deactivate();
+  } else {
+    windowManualStop = false;
+    autoStarted = false;
+    activate();
+  }
+}
 
 // ---------- Session nach Reload wiederherstellen ----------
 (function resumeSession(){
@@ -587,19 +607,20 @@ document.addEventListener('keydown', (e) => {
     const saved = JSON.parse(raw);
     if(saved && saved.startTime){
       startTime = saved.startTime;
+      autoStarted = !!saved.autoStarted;
       activate(true, true);
     }
   }catch(e){}
 })();
 
 // ---------- Zeitfenster-Automatik ----------
-let autoStarted = false;
 function checkTimeWindow(){
   if(!windowEnabled.checked) return;
-  const now = new Date();
-  const nowStr = String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
-  const inWindow = nowStr >= windowStart.value && nowStr < windowEnd.value;
-  if(inWindow && !active){
+  const inWindow = isInWindow();
+  if(!inWindow){
+    windowManualStop = false; // Override zurücksetzen, sobald das Fenster vorbei ist
+  }
+  if(inWindow && !active && !windowManualStop){
     autoStarted = true;
     activate();
   } else if(!inWindow && active && autoStarted){
@@ -607,6 +628,7 @@ function checkTimeWindow(){
     deactivate();
   }
 }
+checkTimeWindow();
 setInterval(checkTimeWindow, 30000);
 
 // ---------- Visibility handling ----------
